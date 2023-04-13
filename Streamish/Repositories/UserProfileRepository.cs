@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Streamish.Models;
 using Streamish.Utils;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Streamish.Repositories
 {
@@ -72,9 +73,7 @@ namespace Streamish.Repositories
                         UserProfile UserProfile = null;
                         if (reader.Read())
                         {
-                           
-
-                            UserProfile userProfile = new UserProfile()
+                           UserProfile userProfile = new UserProfile()
                             {
                                 Id = DbUtils.GetInt(reader, "Id"),
                                 Name = DbUtils.GetString(reader, "Name"),
@@ -146,12 +145,50 @@ namespace Streamish.Repositories
                 conn.Open();
                 using (var cmd = conn.CreateCommand())
                 {
-                    cmd.CommandText = "DELETE FROM UserProfile WHERE Id = @Id";
-                    DbUtils.AddParameter(cmd, "@id", id);
+                    cmd.CommandText = @"DELETE FROM UserProfile WHERE Id = @Id;
+                        DELETE FROM Video WHERE UserProfileId = @Id;
+                        DELETE FROM UserProfile WHERE Id = @Id";
+                    DbUtils.AddParameter(cmd, "@Id", id);
                     cmd.ExecuteNonQuery();
                 }
             }
         }
+       
+        public UserProfile GetByIdWithVideos(int id)
+        {
+            using (var conn = Connection)
+            {
+                conn.Open();
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = @"
+                          SELECT v.Name, v.Email, v.ImageUrl, v.DateCreated, up.Name
+                            FROM UserProfile up
+                            
+                           WHERE Id = @Id";
 
+                    DbUtils.AddParameter(cmd, "@Id", id);
+
+                    using (SqlDataReader reader = cmd.ExecuteReader())
+                    {
+
+                        UserProfile UserProfile = null;
+                        if (reader.Read())
+                        {
+                            UserProfile userProfile = new UserProfile()
+                            {
+                                Id = DbUtils.GetInt(reader, "Id"),
+                                Name = DbUtils.GetString(reader, "Name"),
+                                Email = DbUtils.GetString(reader, "Email"),
+                                ImageUrl = DbUtils.GetString(reader, "ImageUrl"),
+                                DateCreated = DbUtils.GetDateTime(reader, "DateCreated")
+                            };
+                        }
+
+                        return UserProfile;
+                    }
+                }
+            }
+        }
     }
 }
